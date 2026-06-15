@@ -1,0 +1,7 @@
+# Ignora a pasta build
+build/
+
+# Ignora o arquivo de carregar dados no processador.cpp
+src/load_data.cpp
+
+src/loader/loader
