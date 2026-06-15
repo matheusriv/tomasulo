@@ -1,6 +1,6 @@
-# TITULO
+# Processador Superescalar com Tomasulo
 
-descrição
+Este projeto implementa um simulador de um processador superescalar utilizando o algoritmo de Tomasulo.
 
 ## Pré-requisitos
 
@@ -13,4 +13,16 @@ Antes de compilar, é necessário configurar a variável de ambiente `SYSTEMC_PA
 Exemplo en sistema baseados em Unix:
 ```sh
 export SYSTEMC_PATH="/usr/local/systemc"
+```
+## Testando o Processador
+O processador se encontra em `src/Processor.cpp`. 
+
+Compile o código usando o comando make:
+```sh
+make
+```
+
+Para rodar o teste, executando com um arquivo com instruções, siga o exemplo:
+```sh
+./build/tomasulo programs/teste1.txt
 ```

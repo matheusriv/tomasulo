@@ -2,6 +2,7 @@
 #define RESERVATION_STATION_HPP
 
 #include <string>
+#include <systemc.h>
 
 // Estruturas de Status do Tomasulo
 class ReservationStation {
@@ -9,7 +10,7 @@ public:
     std::string name;
     bool busy;
     std::string op;
-    int vj, vk;
+    sc_int<32> vj, vk;
     std::string qj, qk;
     int dest_reg;
     int inst_id;

@@ -2,15 +2,16 @@
 #define LOAD_STORE_UNIT_HPP
 
 #include <string>
+#include <systemc.h>
 
 class LoadStoreUnit {
 public:
     std::string name;
     bool busy;
     bool is_store;
-    int address;
+    sc_uint<32> address;
     std::string qj; // Para armazenar o valor a ser guardado (se vier de outra instrução)
-    int vj;
+    sc_int<32> vj;
     int inst_id;
     int ready_cycles;
 
