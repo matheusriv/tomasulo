@@ -13,12 +13,11 @@ void Multiplier::compute() {
             sc_int<32> val2 = op2.read();
             int op = opcode.read();
 
-            // Simula a latência de hardware configurada
-            wait(latency);
-            
             if (op == 0) { // Exemplo: 0 = MUL
+                if (mult_latency > 1) wait(mult_latency - 1);
                 result.write(val1 * val2);
             } else {       // Exemplo: 1 = DIV
+                if (div_latency > 1) wait(div_latency - 1);
                 if (val2 != 0) {
                     result.write(val1 / val2);
                 } else {

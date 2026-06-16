@@ -7,7 +7,7 @@
 using namespace std;
 
 vector<string> logical_instructions = {
-    "and", "or", "xor", "not", "add", "sub",
+    "and", "or", "xor", "not", "add", "sub", "mul", "div"
 };
 
 vector<string> jump_instructions = {
@@ -60,16 +60,25 @@ bool is_immediate_instruction(const string& instruction) {
 
 int parse_operand(const string& op_str) {
     if (op_str.empty()) return 0;
-    if (op_str[0] == '$') {
-        return stoi(op_str.substr(1)); // Pula o '$' e converte
+    
+    string clean_str = op_str;
+    
+    // remove a vírgula se ela estiver colada no operando (ex: "f6,")
+    if (clean_str.back() == ',') {
+        clean_str.pop_back();
     }
-    return stoi(op_str); // Converte direto se não tiver '$'
+
+    // pula os prefixos tradicionais '$', 'f', 'F', 'r', ou 'R'
+    if (clean_str[0] == '$' || clean_str[0] == 'f' || clean_str[0] == 'F' || clean_str[0] == 'r' || clean_str[0] == 'R') {
+        return stoi(clean_str.substr(1)); 
+    }
+    return stoi(clean_str); 
 }
 
 void load_program(const string& filepath, InstructionQueue& instruction_queue, sc_int<32>* mem_dados) {
     ifstream file(filepath);
     if (!file.is_open()) {
-        cerr << "Erro: Nao foi possivel abrir o arquivo '" << filepath << "'!" << endl;
+        cerr << "Error: Could not open file '" << filepath << "'!" << endl;
         return;
     }
 
@@ -78,11 +87,15 @@ void load_program(const string& filepath, InstructionQueue& instruction_queue, s
     int inst_id_counter = 0;
 
     while(getline(file, token)) {
+        if (!token.empty() && token.back() == '\r') {
+            token.pop_back();
+        }
+
         if(token == "--") {
             isData = false;
             continue;
         }
-        if(token.empty()) continue; // Evita linhas vazias
+        if(token.empty()) continue; // evita linhas vazias
 
         istringstream iss(token);
 

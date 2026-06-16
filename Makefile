@@ -4,7 +4,13 @@ ifndef SYSTEMC_PATH
 $(error SYSTEMC_PATH is not set. Please run 'export SYSTEMC_PATH=/path/to/systemc' before compiling)
 endif
 
-SYSTEMC_LIB_DIR ?= $(SYSTEMC_PATH)/lib
+ifneq ($(wildcard $(SYSTEMC_PATH)/lib-linux64),)
+    SYSTEMC_LIB_DIR ?= $(SYSTEMC_PATH)/lib-linux64
+else ifneq ($(wildcard $(SYSTEMC_PATH)/lib-linux),)
+    SYSTEMC_LIB_DIR ?= $(SYSTEMC_PATH)/lib-linux
+else
+    SYSTEMC_LIB_DIR ?= $(SYSTEMC_PATH)/lib
+endif
 
 CXXFLAGS = -std=c++17 -Wall -O2 -I$(SYSTEMC_PATH)/include -Isrc -DSC_ALLOW_DEPRECATED_IEEE_API
 LDFLAGS = -L$(SYSTEMC_LIB_DIR) -lsystemc -lm -Wl,-rpath=$(SYSTEMC_LIB_DIR)
@@ -32,20 +38,20 @@ dir:
 
 # linka os objetos gerando o executável final
 $(TARGET): $(OBJS)
-	@echo "Linkando o executável $@"
+	@echo "Linking executable $@"
 	@$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 # compila os arquivos fonte da pasta src/ e src/loader/
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@echo "Compilando $<"
+	@echo "Compiling $<"
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 run: $(TARGET)
-	@echo "Executando o simulador..."
+	@echo "Running simulator..."
 	@$(LDLIBPATH) ./$(TARGET) instrucoes.txt
 
 clean:
-	@echo "Limpando o diretório de build..."
+	@echo "Cleaning build directory..."
 	@rm -rf $(BUILD_DIR)
 
 .PHONY: all dir clean run

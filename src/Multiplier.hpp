@@ -15,13 +15,14 @@ SC_MODULE(Multiplier) {
     sc_out<int> rs_id_out;
     sc_out<bool> done;
 
-    int latency;     // Tempo de latência
+    int mult_latency;     // Tempo de latência para multiplicação
+    int div_latency;      // Tempo de latência para divisão
 
     // Processo que simula a operação
     void compute();
 
     SC_HAS_PROCESS(Multiplier);
-    Multiplier(sc_module_name name, int lat = 10) : sc_module(name), latency(lat) {
+    Multiplier(sc_module_name name, int m_lat = 10, int d_lat = 40) : sc_module(name), mult_latency(m_lat), div_latency(d_lat) {
         SC_CTHREAD(compute, clk.pos());
     }
 };

@@ -7,7 +7,7 @@
 class Register {
 public:
     sc_int<32> value;
-    std::string Qi; // Nome da estação de reserva que produzirá o valor, "" se estiver pronto
+    std::string Qi;
 
     // Construtores
     Register();

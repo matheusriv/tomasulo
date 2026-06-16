@@ -1,0 +1,9 @@
+34 100
+45 200
+--
+ld f6, r2 34
+ld f2, r3 45
+mul f0, f2, f4
+sub f8, f6, f2
+div f10, f0, f6
+add f6, f8, f2

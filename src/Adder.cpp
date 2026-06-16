@@ -15,7 +15,7 @@ void Adder::compute() {
             int op = opcode.read();
 
             // Simula a latência de hardware configurada
-            wait(latency);
+            if (latency > 1) wait(latency - 1);
             
             if (op == 0) { // Exemplo: 0 = ADD
                 result.write(val1 + val2);
