@@ -27,7 +27,7 @@ SC_MODULE(TomasuloProcessor) {
     std::vector<ReservationStation> reservation_stations;
     std::vector<LoadStoreUnit> load_store_units;
     
-    // Reorder Buffer
+    // Reorder buffer
     int rob_head;
     int rob_tail;
     int rob_capacity;
@@ -36,7 +36,7 @@ SC_MODULE(TomasuloProcessor) {
     // Histórico de instruções para o diagrama de tempo
     std::vector<Instruction> inst_history;
 
-    // Sinais do CDB para Adder
+    // Sinais do CDB para o Adder
     sc_signal<bool> add_start;
     sc_signal<int> add_rs_id_in;
     sc_signal<sc_int<32>> add_op1;
@@ -46,7 +46,7 @@ SC_MODULE(TomasuloProcessor) {
     sc_signal<int> add_rs_id_out;
     sc_signal<bool> add_done;
 
-    // Sinais do CDB para Multiplier
+    // Sinais do CDB para o Multiplier
     sc_signal<bool> mult_start;
     sc_signal<int> mult_rs_id_in;
     sc_signal<sc_int<32>> mult_op1;
@@ -63,7 +63,7 @@ SC_MODULE(TomasuloProcessor) {
     int current_cycle;
 
     SC_HAS_PROCESS(TomasuloProcessor);
-    TomasuloProcessor(sc_module_name name) : sc_module(name), memory(1024) {
+    TomasuloProcessor(sc_module_name name) : sc_module(name), memory(256) {
         current_cycle = 0;
         
         registers.resize(32);
@@ -76,19 +76,17 @@ SC_MODULE(TomasuloProcessor) {
             reorder_buffer[i].entry_id = i;
         }
 
-        // Estações de Reserva (3 Add/Sub, 2 Mult/Div)
         reservation_stations.push_back(ReservationStation("Add1"));
         reservation_stations.push_back(ReservationStation("Add2"));
         reservation_stations.push_back(ReservationStation("Add3"));
         reservation_stations.push_back(ReservationStation("Mult1"));
         reservation_stations.push_back(ReservationStation("Mult2"));
 
-        // Load/Store Units
         load_store_units.push_back(LoadStoreUnit("Load1"));
         load_store_units.push_back(LoadStoreUnit("Load2"));
         load_store_units.push_back(LoadStoreUnit("Store1"));
 
-        // Instanciar Adder
+        // instanciar o Adder
         adder = new Adder("adder_inst");
         adder->clk(clk);
         adder->start(add_start);
@@ -100,7 +98,7 @@ SC_MODULE(TomasuloProcessor) {
         adder->rs_id_out(add_rs_id_out);
         adder->done(add_done);
 
-        // Instanciar Multiplier
+        // instanciar o Multiplier
         multiplier = new Multiplier("mult_inst");
         multiplier->clk(clk);
         multiplier->start(mult_start);
@@ -112,7 +110,7 @@ SC_MODULE(TomasuloProcessor) {
         multiplier->rs_id_out(mult_rs_id_out);
         multiplier->done(mult_done);
 
-        SC_CTHREAD(run, clk.pos()); // Dispara a thead com a borda de subida
+        SC_CTHREAD(run, clk.pos()); // dispara a thread com a borda de subida
     }
 
     ~TomasuloProcessor() {
@@ -127,7 +125,7 @@ SC_MODULE(TomasuloProcessor) {
 };
 
 void TomasuloProcessor::broadcast_cdb(int rob_id, sc_int<32> result) {
-    // Atualiza RS liberando dependências
+    // atualiza RS liberando dependências
     for (auto& rs : reservation_stations) {
         if (rs.busy) {
             if (rs.qj_rob == rob_id) { rs.vj = result; rs.qj_rob = -1; }
@@ -135,14 +133,14 @@ void TomasuloProcessor::broadcast_cdb(int rob_id, sc_int<32> result) {
         }
     }
     
-    // Atualiza LSU liberando dependências (Store aguardando valor para salvar)
+    // atualiza LSU liberando dependências (store aguardando valor para salvar)
     for (auto& lsu : load_store_units) {
         if (lsu.busy && lsu.is_store) {
             if (lsu.qj_rob == rob_id) { lsu.vj = result; lsu.qj_rob = -1; }
         }
     }
 
-    // Atualiza ROB
+    // atualiza ROB
     reorder_buffer[rob_id].value = result;
     reorder_buffer[rob_id].ready = true;
     reorder_buffer[rob_id].state = "Writeback";
@@ -164,7 +162,7 @@ void TomasuloProcessor::run() {
     while (true) {
         current_cycle++;
         
-        // Desce os sinais de start do ciclo anterior
+        // desce os sinais de start do ciclo anterior
         add_start.write(false);
         mult_start.write(false);
 
@@ -231,7 +229,7 @@ void TomasuloProcessor::run() {
         // Execute LSU
         for (auto& lsu : load_store_units) {
             if (lsu.busy) {
-                if (!lsu.is_store) { // Load
+                if (!lsu.is_store) { // load
                     if (lsu.ready_cycles == 2) {
                         for (auto& inst : inst_history) {
                             if (inst.id == lsu.inst_id) inst.cycle_execute_start = current_cycle;
@@ -252,8 +250,8 @@ void TomasuloProcessor::run() {
                         lsu.busy = false;
                     }
                     if (lsu.ready_cycles > 0) lsu.ready_cycles--;
-                } else { // Store
-                    if (lsu.qj_rob == -1) { // Data is ready
+                } else { // store
+                    if (lsu.qj_rob == -1) {
                         if (lsu.ready_cycles == 2) {
                             for (auto& inst : inst_history) {
                                 if (inst.id == lsu.inst_id) inst.cycle_execute_start = current_cycle;
@@ -288,12 +286,12 @@ void TomasuloProcessor::run() {
             if (rs.busy && rs.qj_rob == -1 && rs.qk_rob == -1 && rs.ready_cycles > 0) {
                 rs.ready_cycles--;
                 if (rs.ready_cycles == 0) {
-                    rs.ready_cycles = -1; // Mantém em -1 aguardando o resultado final do hardware
+                    rs.ready_cycles = -1; // mantém em -1 aguardando o resultado final do hardware
                 }
             }
         }
 
-        // Dispatch to Adder
+        // despacho para o Adder
         bool adder_dispatched = false;
         for (size_t i = 0; i < reservation_stations.size(); i++) {
             auto& rs = reservation_stations[i];
@@ -309,13 +307,13 @@ void TomasuloProcessor::run() {
                         if (inst.id == rs.inst_id) inst.cycle_execute_start = current_cycle + 1;
                     }
                     reorder_buffer[rs.dest_rob].state = "Execute";
-                    rs.ready_cycles = 2; // Inicia o countdown (Latência do Adder)
+                    rs.ready_cycles = 2; // inicia a contagem regressiva (latência do Adder)
                     adder_dispatched = true;
                 }
             }
         }
 
-        // Dispatch to Multiplier
+        // despacho para o Multiplier
         bool mult_dispatched = false;
         for (size_t i = 0; i < reservation_stations.size(); i++) {
             auto& rs = reservation_stations[i];
@@ -331,7 +329,7 @@ void TomasuloProcessor::run() {
                         if (inst.id == rs.inst_id) inst.cycle_execute_start = current_cycle + 1;
                     }
                     reorder_buffer[rs.dest_rob].state = "Execute";
-                    rs.ready_cycles = (rs.op == "mul") ? 10 : 40; // Inicia o countdown (Latência do Multiplier)
+                    rs.ready_cycles = (rs.op == "mul") ? 10 : 40; // inicia a contagem regressiva (latência do Multiplier)
                     mult_dispatched = true;
                 }
             }
@@ -417,7 +415,7 @@ void TomasuloProcessor::run() {
                         lsu.is_store = is_inst_store;
                         lsu.inst_id = inst.id;
                         lsu.dest_rob = rob_tail;
-                        lsu.ready_cycles = 2; // Tempo de latência da memória
+                        lsu.ready_cycles = 2; // tempo de latência da memória
                         
                         // rs é o registrador de endereço base
                         lsu.address = registers[inst.rs].value + inst.imm;
@@ -484,7 +482,7 @@ void TomasuloProcessor::run() {
             sc_stop();
         }
 
-        wait(); // Avança 1 ciclo de clock
+        wait(); // avança 1 ciclo de clock
     }
 }
 
@@ -498,88 +496,98 @@ void TomasuloProcessor::print_status() {
 
     std::cout << "--- RESERVATION STATIONS ---\n";
     std::cout << std::left 
-              << std::setw(8) << "Time" 
-              << std::setw(8) << "Name" 
+              << std::setw(8) << "Time"
+              << std::setw(8) << "Name"
               << std::setw(6) << "Busy" 
-              << std::setw(8) << "Op" 
-              << std::setw(8) << "Vj" 
-              << std::setw(8) << "Vk" 
-              << std::setw(8) << "Qj" 
-              << std::setw(8) << "Qk" 
-              << std::setw(8) << "Dest" << "\n";
+              << std::setw(8) << "Op"
+              << std::setw(8) << "Vj"
+              << std::setw(8) << "Vk"
+              << std::setw(6) << "Qj"
+              << std::setw(6) << "Qk"
+              << std::setw(6) << "Rj"
+              << std::setw(6) << "Rk"
+              << std::setw(8) << "Dest"  << "\n";
     for (const auto& rs : reservation_stations) {
         std::string time_str = "";
         if (!rs.busy) {
             time_str = "";
         } else if (rs.qj_rob != -1 || rs.qk_rob != -1) {
-            time_str = "-"; // Aguardando operandos
+            time_str = "-"; // aguardando operandos
         } else if (rs.ready_cycles > 0) {
-            time_str = std::to_string(rs.ready_cycles); // Mostra o countdown regressivo
+            time_str = std::to_string(rs.ready_cycles); // mostra o countdown regressivo
         } else if (rs.ready_cycles == -1) {
-            time_str = "0"; // Execução finalizada, aguardando Barramento (Writeback)
+            time_str = "0"; // execução finalizada, aguardando barramento (Writeback)
         } else {
-            time_str = "-"; // Pronto para despachar neste ciclo
+            time_str = "-"; // pronto para despachar neste ciclo
         }
 
-        std::string qj_str = (rs.qj_rob != -1) ? std::to_string(rs.qj_rob) : "";
-        std::string qk_str = (rs.qk_rob != -1) ? std::to_string(rs.qk_rob) : "";
-        std::string dest_str = (rs.dest_rob != -1) ? std::to_string(rs.dest_rob) : "";
+        std::string qj_str = (rs.qj_rob != -1) ? std::to_string(rs.qj_rob + 1) : "";
+        std::string qk_str = (rs.qk_rob != -1) ? std::to_string(rs.qk_rob + 1) : "";
+        std::string dest_str = (rs.dest_rob != -1) ? std::to_string(rs.dest_rob + 1) : "";
+        std::string rj_str = "";
+        std::string rk_str = "";
+        if (rs.busy) {
+            rj_str = (rs.qj_rob == -1) ? "yes" : "no";
+            rk_str = (rs.qk_rob == -1) ? "yes" : "no";
+        }
 
         std::cout << std::left 
                   << std::setw(8) << time_str
-                  << std::setw(8) << rs.name 
-                  << std::setw(6) << (rs.busy ? "yes" : "no") 
-                  << std::setw(8) << (rs.busy ? rs.op : "") 
-                  << std::setw(8) << (rs.busy && rs.qj_rob == -1 ? std::to_string(rs.vj.to_int()) : "") 
-                  << std::setw(8) << (rs.busy && rs.qk_rob == -1 ? std::to_string(rs.vk.to_int()) : "") 
-                  << std::setw(8) << (rs.busy ? qj_str : "") 
-                  << std::setw(8) << (rs.busy ? qk_str : "") 
+                  << std::setw(8) << rs.name
+                  << std::setw(6) << (rs.busy ? "yes" : "no")
+                  << std::setw(8) << (rs.busy ? rs.op : "")
+                  << std::setw(8) << (rs.busy && rs.qj_rob == -1 ? std::to_string(rs.vj.to_int()) : "")
+                  << std::setw(8) << (rs.busy && rs.qk_rob == -1 ? std::to_string(rs.vk.to_int()) : "")
+                  << std::setw(6) << (rs.busy ? qj_str : "")
+                  << std::setw(6) << (rs.busy ? qk_str : "")
+                  << std::setw(6) << rj_str
+                  << std::setw(6) << rk_str
                   << std::setw(8) << (rs.busy ? dest_str : "") << "\n";
     }
 
     std::cout << "\n--- LOAD/STORE UNITS ---\n";
-    std::cout << std::left 
-              << std::setw(8) << "Time" 
-              << std::setw(8) << "Name" 
-              << std::setw(6) << "Busy" 
-              << std::setw(10) << "Address" 
+    std::cout << std::left
+              << std::setw(8) << "Time"
+              << std::setw(8) << "Name"
+              << std::setw(6) << "Busy"
+              << std::setw(10) << "Address"
               << std::setw(8) << "Dest" << "\n";
     for (const auto& lsu : load_store_units) {
         std::string time_str = "";
         if (!lsu.busy) {
             time_str = "";
         } else if (lsu.is_store && lsu.qj_rob != -1) {
-            time_str = "-"; // Store aguardando valor do registrador para salvar
+            time_str = "-"; // store aguardando valor do registrador para salvar
         } else {
             time_str = std::to_string(lsu.ready_cycles);
         }
 
-        std::string dest_str = (lsu.dest_rob != -1) ? std::to_string(lsu.dest_rob) : "";
+        std::string dest_str = (lsu.dest_rob != -1) ? std::to_string(lsu.dest_rob + 1) : "";
 
         std::cout << std::left 
                   << std::setw(8) << time_str
-                  << std::setw(8) << lsu.name 
-                  << std::setw(6) << (lsu.busy ? "yes" : "no") 
-                  << std::setw(10) << (lsu.busy ? std::to_string(lsu.address.to_uint()) : "") 
+                  << std::setw(8) << lsu.name
+                  << std::setw(6) << (lsu.busy ? "yes" : "no")
+                  << std::setw(10) << (lsu.busy ? std::to_string(lsu.address.to_uint()) : "")
                   << std::setw(8) << (lsu.busy ? dest_str : "") << "\n";
     }
 
     std::cout << "\n--- REORDER BUFFER ---\n";
     std::cout << std::left 
-              << std::setw(6) << "ID" 
-              << std::setw(6) << "Busy" 
-              << std::setw(10) << "Inst" 
-              << std::setw(12) << "State" 
-              << std::setw(10) << "Dest" 
+              << std::setw(6) << "ID"
+              << std::setw(6) << "Busy"
+              << std::setw(10) << "Inst"
+              << std::setw(12) << "State"
+              << std::setw(10) << "Dest"
               << std::setw(8) << "Value" << "\n";
     for (int i = 0; i < rob_capacity; i++) {
         const auto& b = reorder_buffer[i];
         std::cout << std::left 
-                  << std::setw(6) << i
-                  << std::setw(6) << (b.busy ? "yes" : "no") 
-                  << std::setw(10) << (b.busy ? b.instruction : "") 
-                  << std::setw(12) << (b.busy ? b.state : "") 
-                  << std::setw(10) << (b.busy ? b.destination : "") 
+                  << std::setw(6) << (i + 1)
+                  << std::setw(6) << (b.busy ? "yes" : "no")
+                  << std::setw(10) << (b.busy ? b.instruction : "")
+                  << std::setw(12) << (b.busy ? b.state : "")
+                  << std::setw(10) << (b.busy ? b.destination : "")
                   << std::setw(8) << (b.busy && b.ready ? std::to_string(b.value.to_int()) : "") << "\n";
     }
 
@@ -587,7 +595,7 @@ void TomasuloProcessor::print_status() {
     for (size_t i = 0; i < registers.size(); i += 2) {
         std::cout << "F" << i << ": ";
         if (registers[i].rob_id != -1) {
-            std::cout << std::left << std::setw(6) << ("ROB" + std::to_string(registers[i].rob_id));
+            std::cout << std::left << std::setw(6) << ("ROB" + std::to_string(registers[i].rob_id + 1));
         } else {
             std::cout << std::left << std::setw(6) << registers[i].value.to_int();
         }
@@ -599,12 +607,12 @@ void TomasuloProcessor::print_timing_diagram() {
     std::cout << "\n========================================================================\n";
     std::cout << " FINAL TIMING DIAGRAM (ISSUE | EXECUTE | WRITEBACK | COMMIT)\n";
     std::cout << "========================================================================\n";
-    std::cout << std::left 
-              << std::setw(10) << "Inst ID" 
-              << std::setw(10) << "Name" 
-              << std::setw(10) << "Issue" 
-              << std::setw(15) << "Execute" 
-              << std::setw(12) << "Writeback" 
+    std::cout << std::left
+              << std::setw(10) << "Inst ID"
+              << std::setw(10) << "Name"
+              << std::setw(10) << "Issue"
+              << std::setw(15) << "Execute"
+              << std::setw(12) << "Writeback"
               << std::setw(10) << "Commit" << "\n";
               
     for (const auto& inst : inst_history) {
@@ -615,11 +623,11 @@ void TomasuloProcessor::print_timing_diagram() {
         std::string commit_time = (inst.cycle_commit != -1) ? std::to_string(inst.cycle_commit) : "Pending";
 
         std::cout << std::left 
-                  << std::setw(10) << inst.id 
-                  << std::setw(10) << inst.name 
-                  << std::setw(10) << issue_time 
-                  << std::setw(15) << exec_time 
-                  << std::setw(12) << wb_time 
+                  << std::setw(10) << inst.id
+                  << std::setw(10) << inst.name
+                  << std::setw(10) << issue_time
+                  << std::setw(15) << exec_time
+                  << std::setw(12) << wb_time
                   << std::setw(10) << commit_time << "\n";
     }
 }
@@ -629,7 +637,7 @@ void TomasuloProcessor::print_timing_diagram() {
 // ==========================================
 void print_loaded_instructions(InstructionQueue temp_queue) {
     std::cout << "\n--- INSTRUCTIONS LOADED ---\n";
-    std::cout << std::left << std::setw(6) << "ID" 
+    std::cout << std::left << std::setw(6) << "ID"
               << std::setw(10) << "Name"
               << std::setw(6) << "RD"
               << std::setw(6) << "RS"
@@ -680,15 +688,15 @@ int sc_main(int argc, char* argv[]) {
             std::getline(std::cin, input);
             if (input == "c" || input == "C") {
                 auto_run = true;
-                sc_start(); // Roda continuamente até sc_stop() ser chamado
+                sc_start(); // roda continuamente até sc_stop() ser chamado
                 break;
             } else {
-                sc_start(10, SC_NS); // Avança exatamente 1 ciclo de clock
+                sc_start(10, SC_NS); // avança exatamente 1 ciclo de clock
             }
         }
     }
 
-    proc.print_timing_diagram(); // Exibe a tabela de estatísticas após a simulação
+    proc.print_timing_diagram();
     
     return 0;
 }
