@@ -9,10 +9,15 @@ public:
     int entry_id;
     bool busy;
     std::string instruction;
-    std::string state; // Issue, Execute, Write Result, Commit
+    std::string state; // Issue, Execute, Writeback, Commit
     std::string destination;
     sc_int<32> value;
     bool ready;
+
+    int inst_id;
+    int dest_reg;
+    bool is_store;
+    sc_uint<32> address;
 
     // Construtores
     ReorderBuffer();

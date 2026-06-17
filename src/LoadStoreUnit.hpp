@@ -10,8 +10,9 @@ public:
     bool busy;
     bool is_store;
     sc_uint<32> address;
-    std::string qj; // Para armazenar o valor a ser guardado (se vier de outra instrução)
     sc_int<32> vj;
+    int qj_rob; // -1 se o valor já estiver pronto (operand do store)
+    int dest_rob;
     int inst_id;
     int ready_cycles;
 

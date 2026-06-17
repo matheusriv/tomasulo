@@ -7,7 +7,7 @@
 class Register {
 public:
     sc_int<32> value;
-    std::string Qi;
+    int rob_id; // -1 se estiver pronto, senão ID no Reorder Buffer que produzirá o valor
 
     // Construtores
     Register();

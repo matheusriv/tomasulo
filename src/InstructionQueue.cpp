@@ -27,6 +27,10 @@ bool InstructionQueue::isEmpty() const {
     return queue.empty();
 }
 
+int InstructionQueue::size() const {
+    return queue.size();
+}
+
 void InstructionQueue::clear() {
     queue.clear();
 }

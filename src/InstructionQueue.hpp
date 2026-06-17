@@ -23,6 +23,9 @@ public:
     // Verifica se a fila está vazia
     bool isEmpty() const;
     
+    // Retorna a quantidade de instruções na fila
+    int size() const;
+    
     // Limpa todas as instruções da fila
     void clear();
 };

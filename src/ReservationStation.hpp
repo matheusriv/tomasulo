@@ -11,8 +11,9 @@ public:
     bool busy;
     std::string op;
     sc_int<32> vj, vk;
-    std::string qj, qk;
-    int dest_reg;
+    int qj_rob;
+    int qk_rob;
+    int dest_rob;
     int inst_id;
     int ready_cycles; // Contagem regressiva de execução
 
