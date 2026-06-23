@@ -31,6 +31,7 @@ SC_MODULE(TomasuloProcessor) {
     int rob_head;
     int rob_tail;
     int rob_capacity;
+    int rob_print_limit; // Limite para a impressão do ROB
     std::vector<ReorderBuffer> reorder_buffer;
 
     // Histórico de instruções para o diagrama de tempo
@@ -60,10 +61,12 @@ SC_MODULE(TomasuloProcessor) {
     Adder* adder;
     Multiplier* multiplier;
 
+    int memory_latency;
     int current_cycle;
 
     SC_HAS_PROCESS(TomasuloProcessor);
-    TomasuloProcessor(sc_module_name name) : sc_module(name), memory(256) {
+    TomasuloProcessor(sc_module_name name, int mem_lat = 2) : sc_module(name), memory(256) {
+        memory_latency = mem_lat;
         current_cycle = 0;
         
         registers.resize(32);
@@ -71,6 +74,7 @@ SC_MODULE(TomasuloProcessor) {
         rob_head = 0;
         rob_tail = 0;
         rob_capacity = 16;
+        rob_print_limit = rob_capacity;
         reorder_buffer.resize(rob_capacity);
         for(int i = 0; i < rob_capacity; i++) {
             reorder_buffer[i].entry_id = i;
@@ -147,15 +151,6 @@ void TomasuloProcessor::broadcast_cdb(int rob_id, sc_int<32> result) {
 }
 
 void TomasuloProcessor::run() {
-    int initial_inst_count = instruction_queue.size();
-    if (initial_inst_count > 0) {
-        rob_capacity = initial_inst_count;
-        reorder_buffer.resize(rob_capacity);
-        for (int i = 0; i < rob_capacity; i++) {
-            reorder_buffer[i].entry_id = i;
-        }
-    }
-
     add_start.write(false);
     mult_start.write(false);
 
@@ -307,7 +302,7 @@ void TomasuloProcessor::run() {
                         if (inst.id == rs.inst_id) inst.cycle_execute_start = current_cycle + 1;
                     }
                     reorder_buffer[rs.dest_rob].state = "Execute";
-                    rs.ready_cycles = 2; // inicia a contagem regressiva (latência do Adder)
+                    rs.ready_cycles = adder->latency; // inicia a contagem regressiva (latência do Adder)
                     adder_dispatched = true;
                 }
             }
@@ -329,7 +324,7 @@ void TomasuloProcessor::run() {
                         if (inst.id == rs.inst_id) inst.cycle_execute_start = current_cycle + 1;
                     }
                     reorder_buffer[rs.dest_rob].state = "Execute";
-                    rs.ready_cycles = (rs.op == "mul") ? 10 : 40; // inicia a contagem regressiva (latência do Multiplier)
+                    rs.ready_cycles = (rs.op == "mul") ? multiplier->mult_latency : multiplier->div_latency; // inicia a contagem regressiva (latência do Multiplier)
                     mult_dispatched = true;
                 }
             }
@@ -415,7 +410,7 @@ void TomasuloProcessor::run() {
                         lsu.is_store = is_inst_store;
                         lsu.inst_id = inst.id;
                         lsu.dest_rob = rob_tail;
-                        lsu.ready_cycles = 2; // tempo de latência da memória
+                        lsu.ready_cycles = memory_latency; // tempo de latência da memória
                         
                         // rs é o registrador de endereço base
                         lsu.address = registers[inst.rs].value + inst.imm;
@@ -580,7 +575,7 @@ void TomasuloProcessor::print_status() {
               << std::setw(12) << "State"
               << std::setw(10) << "Dest"
               << std::setw(8) << "Value" << "\n";
-    for (int i = 0; i < rob_capacity; i++) {
+    for (int i = 0; i < rob_print_limit; i++) {
         const auto& b = reorder_buffer[i];
         std::cout << std::left 
                   << std::setw(6) << (i + 1)
@@ -673,8 +668,10 @@ int sc_main(int argc, char* argv[]) {
     
     // carrega as instruções e escreve os dados diretamente na memória do processador
     load_program(argv[1], inst_queue, proc.memory.get_raw_data());
-    // alimenta a fila de instruções no processador
     proc.instruction_queue = inst_queue;
+
+    proc.rob_print_limit = std::min((int)inst_queue.size(), proc.rob_capacity);
+    if (proc.rob_print_limit == 0) proc.rob_print_limit = proc.rob_capacity; 
     //print_loaded_instructions(inst_queue);
 
     std::cout << "\n === Simulation started! ===\n";
